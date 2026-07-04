@@ -18,23 +18,27 @@
  SOFTWARE.
  */
 
-#ifndef ZERO_ONE_BFS_QUEUE_HPP
-#define ZERO_ONE_BFS_QUEUE_HPP
+#ifndef TWO_TIER_QUEUE_HPP
+#define TWO_TIER_QUEUE_HPP
 
 #include <vector>
 #include <utility>
 #include <stdexcept>
 
+
 /**
- * @class zero_one_bfs_queue
- * @brief A priority queue tailored specifically for 0-1 BFS 
+ * @class two_tier_queue
+ * @brief A priority queue that holds at most two tiers of priority
+ * simultaneously. On pop(), if the current tier is exhausted, the next tier becomes 
+ * the current tier.  
  */
+
 template<class T>
-class zero_one_bfs_queue {
+class two_tier_queue {
 private:
     std::vector<T> current; // Active bucket containing nodes at current tier
     std::vector<T> next;    // Deferred bucket containing nodes at next tier
-    int total_cost;         // The current global path cost level
+    int current_tier;         // The current global path cost level
 
 public:
     zero_one_bfs_queue(int capacity = 0) : total_cost(0) {
@@ -92,15 +96,15 @@ public:
        if(current.empty()) {
           if(next.empty()) throw std::out_of_range("Popping an empty queue.");
           std::swap(current, next);
-          total_cost++;
+          current_tier++;
          }
        current.pop_back();
     }
     
-    inline int committed_cost() const {
-        return total_cost;
+    inline int tier() const {
+        return current_tier;
     }
   
 };
 
-#endif // ZERO_ONE_BFS_QUEUE_HPP
+#endif // TWO_TIER_QUEUE_HPP
