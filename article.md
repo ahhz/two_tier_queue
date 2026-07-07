@@ -23,7 +23,7 @@ To eliminate this structural fat, we can look to **Dial’s Algorithm** (a bucke
 
 By capitalizing on this invariant, we can drop `std::deque` entirely and implement a clean queue interface using two contiguous, pre-allocated vectors.
 
-### How it Works Under the Hood
+### How it Works
 
 The queue architecture uses two vectors that are the bucket for the `current` and `next` cost level in the queue. When the active `current` vector is fully exhausted, the class performs a constant-time `std::swap(current, next)`. This merely exchanges the internal data pointers of the two underlying vectors. It incurs **zero heap reallocations and zero deep copying**, while automatically incrementing the internal `committed_cost()` tracking.
 
@@ -31,6 +31,8 @@ Within a single cost bucket, the cost of reaching every node is identical. There
 
 ```cpp
 vector<T> current, next;
+int current_tier = 0; // for convenience we keep track of the tier
+
 inline void push_front(const T& val) {
   current.push_back(val);
 }
@@ -46,16 +48,18 @@ inline const T& top() const {
 inline void pop() {
   if(current.empty()) {
     std::swap(current, next); 
-    total_cost++;
+    current_tier++;
   }
   current.pop_back();
 }
 ```
-## Microbenchmark Impact
+## Benchmark
 
-When running graph traversals on competitive programming judges like LeetCode, swapping a standard `std::deque` 0-1 BFS out for `zero_one_bfs_queue` consistently cuts down execution time, frequently hitting the **0ms (Beats 100%)** boundary. For example here: [Find a Safe Walk](https://leetcode.com/problems/find-a-safe-walk-through-a-grid/solutions/8372712/two-bucket-dials-algorithm-0-ms-by-ahhz-d7b6/) 
+Benchmarking on 01-BFS problems show a computation speed increase factor of about 1.45. 
+
+When running graph traversals on competitive programming judges like LeetCode, swapping a standard `std::deque` 0-1 BFS out for `two_tier_queue` consistently cuts down execution time, frequently hitting the **0ms (Beats 100%)** boundary. For example here: [Find a Safe Walk](https://leetcode.com/problems/find-a-safe-walk-through-a-grid/solutions/8372712/two-bucket-dials-algorithm-0-ms-by-ahhz-d7b6/) 
 
 
-Check out the production-ready C++ header under the MIT license on GitHub:
+Check out the becnhmarks and production-ready C++ header under the MIT license on GitHub:
 
-👉 **[GitHub Repository: zero-one-bfs-queue](https://github.com/ahhz/zero-one-bfs-queue)**
+👉 **[GitHub Repository: zero-one-bfs-queue](https://github.com/ahhz/two_tier_queu)**
