@@ -74,3 +74,22 @@ overall(avg sum)              33.678            22.765         1.48x
 ```
 
 In this run, `two_tier_queue` was about `1.48x` faster than `std::deque` on the selected workloads.
+
+Million-node run (`n = 1,000,000`):
+
+```text
+.\bench_01_bfs.exe --cases 1 --base-nodes 1000000 --node-step 0 --edges-per-node 6 --sources 6 --warmup 1 --runs 3 --seed 42
+```
+
+```text
+0-1 BFS benchmark (same workloads, alternating order, checksummed)
+cases=1 base_nodes=1000000 node_step=0 edges_per_node=6 sources=6 warmup=1 runs=3 seed=42
+
+workload                   deque(ms)      two_tier(ms)       speedup
+--------------------------------------------------------------------
+case_1_n1000000             2410.264          1871.984         1.29x
+--------------------------------------------------------------------
+overall(avg sum)            2410.264          1871.984         1.29x
+```
+
+In this run, `two_tier_queue` was about `1.29x` faster than `std::deque` at one million nodes.
