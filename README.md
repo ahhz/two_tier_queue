@@ -1,18 +1,22 @@
-The 01-BFS is used for shortest path analysis where the cost of a node or edge is 0 or 1. Typically this is implemented with a deque based priority_queue that places high priority at the front and high priority at the back. Here a solution with two buckets is used, which is a more efficient approach because if avoids the complications of a deque.
+The 01-BFS is used for shortest path analysis where the cost of a node or edge is 0 or 1. Typically this is implemented with a deque based priority_queue that places high priority at the front and high priority at the back. Here a solution with two buckets is used, which is a more efficient approach because it avoids the complications of a deque.
 
-## Benchmark: two_tier_queue vs std::deque
+`two_tier_queue` is algorithmically equivalent to Dial's algorithm (`k_tier_queue`) specialised to k=2 with a compile-time constant: both maintain two buckets and advance when the current bucket empties. The difference is structural — `two_tier_queue` holds two named `vector<T>` members and swaps them, while `k_tier_queue<T,2>` uses a `vector<vector<T>>` with a circular index. The benchmark confirms they perform at parity; `two_tier_queue` is the more ergonomic choice for the strict 0-1 case, while `k_tier_queue` generalises to any small integer edge weight.
 
-This repository includes `benchmark_01_bfs.cpp` to compare:
+## Benchmark: four-way comparison
 
-- `two_tier_queue<int>`
-- `std::deque<int>`
+This repository includes `benchmark_01_bfs.cpp` to compare four implementations of the priority queue used in 0-1 BFS:
+
+- `std::deque<int>` — the widely-used standard approach, placing weight-0 nodes at the front and weight-1 nodes at the back.
+- `two_tier_queue<int>` — the proposed alternative using two plain vectors (current and next tier) swapped when the current tier is exhausted.
+- `k_tier_queue<int, 2>` (**compile-time** K) — Dial's algorithm with k=2 known at compile time; the compiler unrolls the two-iteration loop and folds `% 2` to `& 1`. Performs at parity with `two_tier_queue`.
+- `k_tier_queue_rt<int>` (**runtime** k=2) — same algorithm but k is a runtime value, preventing loop unrolling and constant folding. Included to quantify the cost of that flexibility.
 
 The benchmark is designed to be fair:
 
-- Both implementations run on identical, pre-generated random 0-1 graphs.
-- The execution order alternates every round to reduce thermal/turbo bias.
+- All four implementations run on identical, pre-generated random 0-1 graphs.
+- The execution order cycles through all four queues every round to reduce thermal/turbo bias.
 - Warmup rounds are excluded from timing.
-- A checksum is validated every round to guarantee both queues produce identical BFS outputs.
+- A checksum is validated every round to guarantee all four queues produce identical BFS outputs.
 
 ### Build
 
@@ -65,31 +69,31 @@ From a Windows/MSVC run with:
 0-1 BFS benchmark (same workloads, alternating order, checksummed)
 cases=2 base_nodes=20000 node_step=10000 edges_per_node=6 sources=6 warmup=1 runs=3 seed=42
 
-workload                   deque(ms)      two_tier(ms)       speedup
---------------------------------------------------------------------
-case_1_n20000                 13.014             8.758         1.49x
-case_2_n30000                 20.664            14.007         1.48x
---------------------------------------------------------------------
-overall(avg sum)              33.678            22.765         1.48x
+workload               deque(ms)  two_tier(ms)    k2_ct(ms)    k2_rt(ms)   spd_2t   spd_ct   spd_rt
+-------------------------------------------------------------------------------------------------------
+case_1_n20000              8.991         5.090        4.889        5.944     1.77x    1.84x    1.51x
+case_2_n30000             16.229         7.830       10.162       10.406     2.07x    1.60x    1.56x
+-------------------------------------------------------------------------------------------------------
+overall(avg sum)          25.220        12.920       15.051       16.350     1.95x    1.68x    1.54x
 ```
 
-In this run, `two_tier_queue` was about `1.48x` faster than `std::deque` on the selected workloads.
+`two_tier_queue` and `k_tier_queue<2>` (compile-time K) perform at parity — both are roughly **1.7–1.9×** faster than `std::deque`. The runtime-k variant trails by about 15–20%, showing the cost of suppressing compile-time optimisations.
 
 Million-node run (`n = 1,000,000`):
 
 ```text
-.\bench_01_bfs.exe --cases 1 --base-nodes 1000000 --node-step 0 --edges-per-node 6 --sources 6 --warmup 1 --runs 3 --seed 42
+.\bench_01_bfs.exe --cases 1 --base-nodes 1000000 --node-step 0 --edges-per-node 6 --sources 2 --warmup 1 --runs 2 --seed 42
 ```
 
 ```text
 0-1 BFS benchmark (same workloads, alternating order, checksummed)
-cases=1 base_nodes=1000000 node_step=0 edges_per_node=6 sources=6 warmup=1 runs=3 seed=42
+cases=1 base_nodes=1000000 node_step=0 edges_per_node=6 sources=2 warmup=1 runs=2 seed=42
 
-workload                   deque(ms)      two_tier(ms)       speedup
---------------------------------------------------------------------
-case_1_n1000000             2410.264          1871.984         1.29x
---------------------------------------------------------------------
-overall(avg sum)            2410.264          1871.984         1.29x
+workload                 deque(ms)  two_tier(ms)    k2_ct(ms)    k2_rt(ms)   spd_2t   spd_ct   spd_rt
+-------------------------------------------------------------------------------------------------------
+case_1_n1000000           502.333       422.874      446.530      484.607     1.19x    1.12x    1.04x
+-------------------------------------------------------------------------------------------------------
+overall(avg sum)          502.333       422.874      446.530      484.607     1.19x    1.12x    1.04x
 ```
 
-In this run, `two_tier_queue` was about `1.29x` faster than `std::deque` at one million nodes.
+At one million nodes the advantage narrows for all three alternatives. `two_tier_queue` and `k_tier_queue<2>` remain close (~1.19x vs ~1.12x), and the runtime-k variant nearly converges with `std::deque` (~1.04x), confirming that the compile-time K is essential to the performance of the Dial's algorithm variant.

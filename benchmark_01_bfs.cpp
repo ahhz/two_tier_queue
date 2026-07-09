@@ -11,6 +11,29 @@
 #include <vector>
 
 #include "two_tier_queue.hpp"
+#include "k_tier_queue.hpp"
+
+// Adapter wrapping k_tier_queue<int, 2> (compile-time K).
+struct k_tier_queue_2_adapter {
+    k_tier_queue<int, 2> q;
+    explicit k_tier_queue_2_adapter(int capacity = 0) : q(capacity) {}
+    void push_front(int v) { q.insert(v, 0); }
+    void push_back(int v)  { q.insert(v, 1); }
+    int  front()     const { return q.top(); }
+    void pop_front()       { q.pop(); }
+    bool empty()     const { return q.empty(); }
+};
+
+// Adapter wrapping k_tier_queue_rt<int> (runtime k=2).
+struct k_tier_queue_rt_2_adapter {
+    k_tier_queue_rt<int> q;
+    explicit k_tier_queue_rt_2_adapter(int capacity = 0) : q(2, capacity) {}
+    void push_front(int v) { q.insert(v, 0); }
+    void push_back(int v)  { q.insert(v, 1); }
+    int  front()     const { return q.top(); }
+    void pop_front()       { q.pop(); }
+    bool empty()     const { return q.empty(); }
+};
 
 struct Edge {
     int to;
@@ -212,6 +235,143 @@ std::pair<Timing, Timing> benchmark_case(const Workload &w, const Config &cfg) {
     return {a, b};
 }
 
+template <typename QueueA, typename QueueB, typename QueueC>
+std::tuple<Timing, Timing, Timing> benchmark_case_3(const Workload &w, const Config &cfg) {
+    Scratch scratch_a, scratch_b, scratch_c;
+    scratch_a.dist.assign(static_cast<std::size_t>(w.graph.node_count), kInf);
+    scratch_b.dist.assign(static_cast<std::size_t>(w.graph.node_count), kInf);
+    scratch_c.dist.assign(static_cast<std::size_t>(w.graph.node_count), kInf);
+    scratch_a.touched.reserve(static_cast<std::size_t>(w.graph.node_count));
+    scratch_b.touched.reserve(static_cast<std::size_t>(w.graph.node_count));
+    scratch_c.touched.reserve(static_cast<std::size_t>(w.graph.node_count));
+
+    Timing a, b, c;
+    const int total_rounds = cfg.warmup + cfg.runs;
+
+    for (int round = 0; round < total_rounds; ++round) {
+        const int order = round % 3;
+
+        auto run_a = [&]() {
+            const auto t0 = std::chrono::steady_clock::now();
+            const std::uint64_t chk = run_case_once<QueueA>(w, scratch_a);
+            const auto t1 = std::chrono::steady_clock::now();
+            if (round >= cfg.warmup) {
+                a.total_ms += std::chrono::duration<double, std::milli>(t1 - t0).count();
+                a.checksum ^= chk;
+            }
+            return chk;
+        };
+
+        auto run_b = [&]() {
+            const auto t0 = std::chrono::steady_clock::now();
+            const std::uint64_t chk = run_case_once<QueueB>(w, scratch_b);
+            const auto t1 = std::chrono::steady_clock::now();
+            if (round >= cfg.warmup) {
+                b.total_ms += std::chrono::duration<double, std::milli>(t1 - t0).count();
+                b.checksum ^= chk;
+            }
+            return chk;
+        };
+
+        auto run_c = [&]() {
+            const auto t0 = std::chrono::steady_clock::now();
+            const std::uint64_t chk = run_case_once<QueueC>(w, scratch_c);
+            const auto t1 = std::chrono::steady_clock::now();
+            if (round >= cfg.warmup) {
+                c.total_ms += std::chrono::duration<double, std::milli>(t1 - t0).count();
+                c.checksum ^= chk;
+            }
+            return chk;
+        };
+
+        std::uint64_t chk_a, chk_b, chk_c;
+        if      (order == 0) { chk_a = run_a(); chk_b = run_b(); chk_c = run_c(); }
+        else if (order == 1) { chk_b = run_b(); chk_c = run_c(); chk_a = run_a(); }
+        else                 { chk_c = run_c(); chk_a = run_a(); chk_b = run_b(); }
+
+        if (chk_a != chk_b || chk_a != chk_c) {
+            std::cerr << "Checksum mismatch in workload '" << w.name << "'.\n";
+            std::exit(1);
+        }
+    }
+
+    return {a, b, c};
+}
+
+template <typename QueueA, typename QueueB, typename QueueC, typename QueueD>
+std::tuple<Timing, Timing, Timing, Timing> benchmark_case_4(const Workload &w, const Config &cfg) {
+    Scratch scratch_a, scratch_b, scratch_c, scratch_d;
+    scratch_a.dist.assign(static_cast<std::size_t>(w.graph.node_count), kInf);
+    scratch_b.dist.assign(static_cast<std::size_t>(w.graph.node_count), kInf);
+    scratch_c.dist.assign(static_cast<std::size_t>(w.graph.node_count), kInf);
+    scratch_d.dist.assign(static_cast<std::size_t>(w.graph.node_count), kInf);
+    scratch_a.touched.reserve(static_cast<std::size_t>(w.graph.node_count));
+    scratch_b.touched.reserve(static_cast<std::size_t>(w.graph.node_count));
+    scratch_c.touched.reserve(static_cast<std::size_t>(w.graph.node_count));
+    scratch_d.touched.reserve(static_cast<std::size_t>(w.graph.node_count));
+
+    Timing a, b, c, d;
+    const int total_rounds = cfg.warmup + cfg.runs;
+
+    for (int round = 0; round < total_rounds; ++round) {
+        const int order = round % 4;
+
+        auto run_a = [&]() {
+            const auto t0 = std::chrono::steady_clock::now();
+            const std::uint64_t chk = run_case_once<QueueA>(w, scratch_a);
+            const auto t1 = std::chrono::steady_clock::now();
+            if (round >= cfg.warmup) {
+                a.total_ms += std::chrono::duration<double, std::milli>(t1 - t0).count();
+                a.checksum ^= chk;
+            }
+            return chk;
+        };
+        auto run_b = [&]() {
+            const auto t0 = std::chrono::steady_clock::now();
+            const std::uint64_t chk = run_case_once<QueueB>(w, scratch_b);
+            const auto t1 = std::chrono::steady_clock::now();
+            if (round >= cfg.warmup) {
+                b.total_ms += std::chrono::duration<double, std::milli>(t1 - t0).count();
+                b.checksum ^= chk;
+            }
+            return chk;
+        };
+        auto run_c = [&]() {
+            const auto t0 = std::chrono::steady_clock::now();
+            const std::uint64_t chk = run_case_once<QueueC>(w, scratch_c);
+            const auto t1 = std::chrono::steady_clock::now();
+            if (round >= cfg.warmup) {
+                c.total_ms += std::chrono::duration<double, std::milli>(t1 - t0).count();
+                c.checksum ^= chk;
+            }
+            return chk;
+        };
+        auto run_d = [&]() {
+            const auto t0 = std::chrono::steady_clock::now();
+            const std::uint64_t chk = run_case_once<QueueD>(w, scratch_d);
+            const auto t1 = std::chrono::steady_clock::now();
+            if (round >= cfg.warmup) {
+                d.total_ms += std::chrono::duration<double, std::milli>(t1 - t0).count();
+                d.checksum ^= chk;
+            }
+            return chk;
+        };
+
+        std::uint64_t chk_a, chk_b, chk_c, chk_d;
+        if      (order == 0) { chk_a = run_a(); chk_b = run_b(); chk_c = run_c(); chk_d = run_d(); }
+        else if (order == 1) { chk_b = run_b(); chk_c = run_c(); chk_d = run_d(); chk_a = run_a(); }
+        else if (order == 2) { chk_c = run_c(); chk_d = run_d(); chk_a = run_a(); chk_b = run_b(); }
+        else                 { chk_d = run_d(); chk_a = run_a(); chk_b = run_b(); chk_c = run_c(); }
+
+        if (chk_a != chk_b || chk_a != chk_c || chk_a != chk_d) {
+            std::cerr << "Checksum mismatch in workload '" << w.name << "'.\n";
+            std::exit(1);
+        }
+    }
+
+    return {a, b, c, d};
+}
+
 Config parse_args(int argc, char **argv) {
     Config cfg;
     for (int i = 1; i < argc; ++i) {
@@ -294,37 +454,53 @@ int main(int argc, char **argv) {
                   << " warmup=" << cfg.warmup << " runs=" << cfg.runs
                   << " seed=" << cfg.seed << "\n\n";
 
-        std::cout << std::left << std::setw(22) << "workload"
-                  << std::right << std::setw(14) << "deque(ms)"
-                  << std::setw(18) << "two_tier(ms)"
-                  << std::setw(14) << "speedup" << "\n";
-        std::cout << std::string(68, '-') << "\n";
+        std::cout << std::left  << std::setw(22) << "workload"
+                  << std::right << std::setw(13) << "deque(ms)"
+                  << std::setw(15) << "two_tier(ms)"
+                  << std::setw(14) << "k2_ct(ms)"
+                  << std::setw(14) << "k2_rt(ms)"
+                  << std::setw(11) << "spd_2t"
+                  << std::setw(11) << "spd_ct"
+                  << std::setw(11) << "spd_rt" << "\n";
+        std::cout << std::string(111, '-') << "\n";
 
-        double total_deque = 0.0;
+        double total_deque    = 0.0;
         double total_two_tier = 0.0;
+        double total_k2_ct    = 0.0;
+        double total_k2_rt    = 0.0;
 
         for (const Workload &w : workloads) {
-            auto [deque_timing, two_tier_timing] =
-                benchmark_case<std::deque<int>, two_tier_queue<int>>(w, cfg);
+            auto [deque_t, two_tier_t, k2_ct_t, k2_rt_t] =
+                benchmark_case_4<std::deque<int>, two_tier_queue<int>,
+                                 k_tier_queue_2_adapter, k_tier_queue_rt_2_adapter>(w, cfg);
 
-            const double avg_deque_ms = deque_timing.total_ms / static_cast<double>(cfg.runs);
-            const double avg_two_tier_ms = two_tier_timing.total_ms / static_cast<double>(cfg.runs);
-            const double speedup = avg_deque_ms / avg_two_tier_ms;
+            const double avg_deque    = deque_t.total_ms    / static_cast<double>(cfg.runs);
+            const double avg_two_tier = two_tier_t.total_ms / static_cast<double>(cfg.runs);
+            const double avg_k2_ct    = k2_ct_t.total_ms   / static_cast<double>(cfg.runs);
+            const double avg_k2_rt    = k2_rt_t.total_ms   / static_cast<double>(cfg.runs);
 
-            total_deque += avg_deque_ms;
-            total_two_tier += avg_two_tier_ms;
+            total_deque    += avg_deque;
+            total_two_tier += avg_two_tier;
+            total_k2_ct    += avg_k2_ct;
+            total_k2_rt    += avg_k2_rt;
 
-            std::cout << std::left << std::setw(22) << w.name
-                      << std::right << std::setw(14) << std::fixed << std::setprecision(3)
-                      << avg_deque_ms << std::setw(18) << avg_two_tier_ms << std::setw(13)
-                      << std::setprecision(2) << speedup << "x\n";
+            std::cout << std::left  << std::setw(22) << w.name
+                      << std::right << std::setw(13) << std::fixed << std::setprecision(3)
+                      << avg_deque   << std::setw(15) << avg_two_tier
+                      << std::setw(14) << avg_k2_ct  << std::setw(14) << avg_k2_rt
+                      << std::setw(10) << std::setprecision(2) << (avg_deque / avg_two_tier) << "x"
+                      << std::setw(10) << (avg_deque / avg_k2_ct) << "x"
+                      << std::setw(10) << (avg_deque / avg_k2_rt) << "x\n";
         }
 
-        std::cout << std::string(68, '-') << "\n";
-        std::cout << std::left << std::setw(22) << "overall(avg sum)"
-                  << std::right << std::setw(14) << std::fixed << std::setprecision(3)
-                  << total_deque << std::setw(18) << total_two_tier << std::setw(13)
-                  << std::setprecision(2) << (total_deque / total_two_tier) << "x\n";
+        std::cout << std::string(111, '-') << "\n";
+        std::cout << std::left  << std::setw(22) << "overall(avg sum)"
+                  << std::right << std::setw(13) << std::fixed << std::setprecision(3)
+                  << total_deque   << std::setw(15) << total_two_tier
+                  << std::setw(14) << total_k2_ct  << std::setw(14) << total_k2_rt
+                  << std::setw(10) << std::setprecision(2) << (total_deque / total_two_tier) << "x"
+                  << std::setw(10) << (total_deque / total_k2_ct) << "x"
+                  << std::setw(10) << (total_deque / total_k2_rt) << "x\n";
 
         return 0;
     } catch (const std::exception &ex) {

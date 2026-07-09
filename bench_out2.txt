@@ -1,0 +1,8 @@
+0-1 BFS benchmark (same workloads, alternating order, checksummed)
+cases=1 base_nodes=1000000 node_step=0 edges_per_node=6 sources=2 warmup=1 runs=2 seed=42
+
+workload                  deque(ms)   two_tier(ms)     k2_ct(ms)     k2_rt(ms)     spd_2t     spd_ct     spd_rt
+---------------------------------------------------------------------------------------------------------------
+case_1_n1000000             502.333        422.874       446.530       484.607      1.19x      1.12x      1.04x
+---------------------------------------------------------------------------------------------------------------
+overall(avg sum)            502.333        422.874       446.530       484.607      1.19x      1.12x      1.04x
