@@ -59,25 +59,42 @@ Example:
 
 ### Sample results
 
-From a Windows/MSVC run with:
+From a Windows/MSVC run with n=100 runs:
 
 ```text
-.\bench_01_bfs.exe --cases 2 --base-nodes 20000 --node-step 10000 --edges-per-node 6 --sources 6 --warmup 1 --runs 3 --seed 42
+.\bench_01_bfs.exe --cases 3 --base-nodes 40000 --node-step 20000 --edges-per-node 8 --sources 8 --warmup 2 --runs 100 --seed 1337
 ```
+
+**Median timings and speedup:**
 
 ```text
 0-1 BFS benchmark (same workloads, alternating order, checksummed)
-cases=2 base_nodes=20000 node_step=10000 edges_per_node=6 sources=6 warmup=1 runs=3 seed=42
+cases=3 base_nodes=40000 node_step=20000 edges_per_node=8 sources=8 warmup=2 runs=100 seed=1337
 
-workload               deque(ms)  two_tier(ms)    k2_ct(ms)    k2_rt(ms)   spd_2t   spd_ct   spd_rt
+workload               deque(ms)  two_tier(ms)    k2_ct(ms)   k2_rt(ms)    spd_2t   spd_ct   spd_rt
 -------------------------------------------------------------------------------------------------------
-case_1_n20000              8.991         5.090        4.889        5.944     1.77x    1.84x    1.51x
-case_2_n30000             16.229         7.830       10.162       10.406     2.07x    1.60x    1.56x
+case_1_n40000             30.853        17.891       18.822      20.806      1.72x    1.64x    1.48x
+case_2_n60000             49.991        30.586       31.826      35.992      1.63x    1.57x    1.39x
+case_3_n80000             73.255        44.879       46.412      51.577      1.63x    1.58x    1.42x
 -------------------------------------------------------------------------------------------------------
-overall(avg sum)          25.220        12.920       15.051       16.350     1.95x    1.68x    1.54x
+overall(med sum)         154.100        93.356       97.061     108.376      1.65x    1.59x    1.42x
 ```
 
-`two_tier_queue` and `k_tier_queue<2>` (compile-time K) perform at parity — both are roughly **1.7–1.9×** faster than `std::deque`. The runtime-k variant trails by about 15–20%, showing the cost of suppressing compile-time optimisations.
+**Distribution metrics (standard deviation and coefficient of variation):**
+
+```text
+Spread over 100 runs (median ± std dev, CV% = stddev/mean):
+                              deque        two_tier           k2_ct           k2_rt
+workload              sd(ms)    cv%   sd(ms)    cv%   sd(ms)    cv%   sd(ms)    cv%
+------------------------------------------------------------------------------------------
+case_1_n40000            2.789   9.0%    1.824  10.0%    1.232   6.5%    2.241  10.6%
+case_2_n60000            5.296  10.6%    3.324  10.8%    2.294   7.2%    5.740  15.8%
+case_3_n80000            5.074   6.8%    4.278   9.4%    5.782  12.1%    7.563  14.3%
+------------------------------------------------------------------------------------------
+avg cv%                          8.8%           10.1%            8.6%           13.6%
+```
+
+`two_tier_queue` and `k_tier_queue<2>` (compile-time K) perform at parity — both are roughly **1.59–1.72×** faster than `std::deque`. The runtime-k variant (`k_tier_queue_rt`) trails by about 12–17%, confirming the cost of suppressing compile-time optimisations (loop unrolling, constant folding of `% 2`). Over 100 runs, `k_tier_queue<2>` shows the lowest average CV% (8.6%), indicating it is the most stable across workloads.
 
 Million-node run (`n = 1,000,000`):
 
